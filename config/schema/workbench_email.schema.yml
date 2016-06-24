@@ -1,0 +1,49 @@
+workbench_moderation.moderation_state_transition.*.third_party.contact_storage:
+  type: mapping
+  label: 'Workbench email settings'
+  mapping:
+    roles:
+      type: sequence
+      label: 'Roles'
+      sequence:
+        type: string
+        label: 'Role'
+    fields:
+      type: sequence
+      label: 'Mail fields'
+      sequence:
+        type: string
+        label: 'Field'
+    author:
+      type: boolean
+      label: 'Send to author'
+    notifications:
+      type: sequence
+      label: 'Notifications'
+      sequence:
+        type: string
+        label: 'Notification'
+
+workbench_email.workbench_email_template.*:
+  type: config_entity
+  label: 'Email Template config'
+  mapping:
+    id:
+      type: string
+      label: 'ID'
+    label:
+      type: label
+      label: 'Label'
+    subject:
+      type: label
+      label: 'Subject'
+    body:
+      type: mapping
+      label: 'Body'
+      mapping:
+        value:
+          type: string
+          label: 'Value'
+        format:
+          type: string
+          label: 'Format'
