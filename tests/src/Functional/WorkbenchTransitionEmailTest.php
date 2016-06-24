@@ -4,6 +4,8 @@ namespace Drupal\Tests\workbench_email\Functional;
 
 use Drupal\Core\Test\AssertMailTrait;
 use Drupal\Core\Url;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\Entity\NodeType;
 use Drupal\simpletest\BlockCreationTrait;
 use Drupal\Tests\BrowserTestBase;
@@ -85,6 +87,7 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     'system',
     'filter',
     'block',
+    'field',
   ];
 
   /**
@@ -139,6 +142,20 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'administer workbench_email templates',
       'access administration pages',
     ]);
+    // Add an email field notify to the node-type.
+    FieldStorageConfig::create([
+      'cardinality' => 1,
+      'id' => 'node.field_email',
+      'entity_type' => 'node',
+      'field_name' => 'field_email',
+      'type' => 'email',
+    ])->save();
+    FieldConfig::create([
+      'field_name' => 'field_email',
+      'bundle' => 'test',
+      'label' => 'Notify',
+      'entity_type' => 'node',
+    ]);
   }
 
   /**
@@ -173,8 +190,13 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $assert->pageTextContains('Created the Content needs review Email Template');
     // Edit the template.
     $page->clickLink('Content needs review');
-    // Add an email field notify to the node-type.
-
+    $this->submitForm([
+      'id' => 'needs_review',
+      'label' => 'Content needs review',
+      'body[value]' => 'Content with title [node:title] needs review. You can view it at [node:url].',
+      'subject' => 'Content needs review',
+    ], t('Save'));
+    $assert->pageTextContains('Saved the Content needs review Email Template');
     // Edit the transition from needs review to published and add email config:
     // - email author
     // - email someone in notifier field
