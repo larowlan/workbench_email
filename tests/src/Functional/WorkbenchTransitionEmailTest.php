@@ -3,6 +3,7 @@
 namespace Drupal\Tests\workbench_email\Functional;
 
 use Drupal\Core\Test\AssertMailTrait;
+use Drupal\Core\Url;
 use Drupal\node\Entity\NodeType;
 use Drupal\simpletest\BlockCreationTrait;
 use Drupal\Tests\BrowserTestBase;
@@ -136,6 +137,7 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $this->admin = $this->drupalCreateUser([
       'administer moderation state transitions',
       'administer workbench_email templates',
+      'access administration pages',
     ]);
   }
 
@@ -144,31 +146,31 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
    */
   public function testEndToEnd() {
     // Create some templates as admin.
-    // - stuff got approved
-    // - stuff needs review
+    // - stuff got approved; and
+    // - stuff needs review.
     $this->drupalLogin($this->admin);
-    $this->drupalGet('admin/structure/workbench-moderation/workbench-email-template');
-    $assert = $this->assertSession();
+    $this->drupalGet('admin/structure/workbench-moderation');
     $page = $this->getSession()->getPage();
+    $page->clickLink('Email Templates');
+    $assert = $this->assertSession();
+    $this->assertEquals($this->getSession()->getCurrentUrl(), Url::fromUri('internal:/admin/structure/workbench-moderation/workbench-email-template')->setOption('absolute', TRUE)->toString());
     $assert->pageTextContains('Email Template');
     $page->clickLink('Add Email Template');
     $this->submitForm([
       'id' => 'approved',
       'label' => 'Content approved',
       'body[value]' => 'Content with title [node:title] was approved. You can view it at [node:url].',
-      'body[format]' => 'plain_text',
       'subject' => 'Content approved',
     ], t('Save'));
-    $assert->pageTextContains('Saved the Content approved Email Template');
+    $assert->pageTextContains('Created the Content approved Email Template');
     $page->clickLink('Add Email Template');
     $this->submitForm([
       'id' => 'needs_review',
       'label' => 'Content needs review',
       'body[value]' => 'Content with title [node:title] needs review. You can view it at [node:url].',
-      'body[format]' => 'plain_text',
       'subject' => 'Content needs review',
     ], t('Save'));
-    $assert->pageTextContains('Saved the Content needs review Email Template');
+    $assert->pageTextContains('Created the Content needs review Email Template');
     // Add an email field notify to the node-type.
 
     // Edit the transition from needs review to published and add email config:

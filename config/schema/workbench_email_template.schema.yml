@@ -1,0 +1,23 @@
+workbench_email.workbench_email_template.*:
+  type: config_entity
+  label: 'Email Template config'
+  mapping:
+    id:
+      type: string
+      label: 'ID'
+    label:
+      type: label
+      label: 'Label'
+    subject:
+      type: label
+      label: 'Subject'
+    body:
+      type: mapping
+      label: 'Body'
+      mapping:
+        value:
+          type: string
+          label: 'Value'
+        format:
+          type: string
+          label: 'Format'

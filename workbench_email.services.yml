@@ -1,0 +1,6 @@
+services:
+  workbench_email.subscriber.workbench_transition:
+    class: Drupal\workbench_email\EventSubscriber\WorkbenchTransitionEventSubscriber
+    arguments: ['@plugin.manager.mail', '@token', '@entity_type.manager', '@config.factory', '@renderer']
+    tags:
+      - { name: event_subscriber }
