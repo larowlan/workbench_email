@@ -4,6 +4,7 @@ namespace Drupal\Tests\workbench_email\Functional;
 
 use Drupal\Core\Test\AssertMailTrait;
 use Drupal\node\Entity\NodeType;
+use Drupal\simpletest\BlockCreationTrait;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\user\Entity\Role;
 use Drupal\workbench_moderation\Entity\ModerationState;
@@ -20,6 +21,7 @@ use Drupal\workbench_moderation\Entity\ModerationState;
 class WorkbenchTransitionEmailTest extends BrowserTestBase {
 
   use AssertMailTrait;
+  use BlockCreationTrait;
 
   /**
    * Test node type.
@@ -81,12 +83,18 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     'user',
     'system',
     'filter',
+    'block',
   ];
 
   /**
-   * Test administration.
+   * {@inheritdoc}
    */
-  public function testEndToEnd() {
+  public function setUp() {
+    parent::setUp();
+    // Place some blocks.
+    $this->placeBlock('local_tasks_block', ['id' => 'tabs_block']);
+    $this->placeBlock('page_title_block');
+    $this->placeBlock('local_actions_block', ['id' => 'actions_block']);
     // Create a node-type and make it moderated.
     $this->nodeType = NodeType::create([
       'type' => 'test',
@@ -129,6 +137,12 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'administer moderation state transitions',
       'administer workbench_email templates',
     ]);
+  }
+
+  /**
+   * Test administration.
+   */
+  public function testEndToEnd() {
     // Create some templates as admin.
     // - stuff got approved
     // - stuff needs review
