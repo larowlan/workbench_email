@@ -191,15 +191,20 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     // Edit the template.
     $page->clickLink('Content needs review');
     $this->submitForm([
-      'id' => 'needs_review',
       'label' => 'Content needs review',
       'body[value]' => 'Content with title [node:title] needs review. You can view it at [node:url].',
       'subject' => 'Content needs review',
     ], t('Save'));
     $assert->pageTextContains('Saved the Content needs review Email Template');
     // Edit the transition from needs review to published and add email config:
-    // - email author
-    // - email someone in notifier field
+    // - email author; and
+    // - email someone in notifier field.
+    $this->drupalGet('admin/structure/workbench-moderation/transitions/needs_review_published');
+    $this->submitForm([
+      'fields[field_email]' => TRUE,
+      'author' => TRUE,
+      'notifications[approved]' => TRUE,
+    ], t('Save'));
     // Edit the transition from draft to needs review and add email config:
     // - email approver
     // Create a node and add to the notifier field.
