@@ -80,6 +80,7 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     'options',
     'user',
     'system',
+    'filter',
   ];
 
   /**
@@ -131,6 +132,29 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     // Create some templates as admin.
     // - stuff got approved
     // - stuff needs review
+    $this->drupalLogin($this->admin);
+    $this->drupalGet('admin/structure/workbench-moderation/workbench-email-template');
+    $assert = $this->assertSession();
+    $page = $this->getSession()->getPage();
+    $assert->pageTextContains('Email Template');
+    $page->clickLink('Add Email Template');
+    $this->submitForm([
+      'id' => 'approved',
+      'label' => 'Content approved',
+      'body[value]' => 'Content with title [node:title] was approved. You can view it at [node:url].',
+      'body[format]' => 'plain_text',
+      'subject' => 'Content approved',
+    ], t('Save'));
+    $assert->pageTextContains('Saved the Content approved Email Template');
+    $page->clickLink('Add Email Template');
+    $this->submitForm([
+      'id' => 'needs_review',
+      'label' => 'Content needs review',
+      'body[value]' => 'Content with title [node:title] needs review. You can view it at [node:url].',
+      'body[format]' => 'plain_text',
+      'subject' => 'Content needs review',
+    ], t('Save'));
+    $assert->pageTextContains('Saved the Content needs review Email Template');
     // Add an email field notify to the node-type.
 
     // Edit the transition from needs review to published and add email config:
