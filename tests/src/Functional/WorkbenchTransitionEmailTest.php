@@ -171,6 +171,8 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'subject' => 'Content needs review',
     ], t('Save'));
     $assert->pageTextContains('Created the Content needs review Email Template');
+    // Edit the template.
+    $page->clickLink('Content needs review');
     // Add an email field notify to the node-type.
 
     // Edit the transition from needs review to published and add email config:
