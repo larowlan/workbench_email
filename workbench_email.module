@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * @file
+ * Provides main module functions.
+ */
+
+
+// Alter the transition form to add the fields to choose
+// - roles
+// - fields
+// - author flag
+// with an entity builder
+
+// Alter the dependencies

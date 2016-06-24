@@ -1,0 +1,7 @@
+name: Workbench email
+type: module
+description: Send emails to users when workbench transitions occur
+core: 8.x
+package: Workbench
+dependencies:
+  - workbench_moderation
