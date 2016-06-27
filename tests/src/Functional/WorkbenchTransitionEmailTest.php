@@ -209,11 +209,11 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $assert->pageTextContains('Created the Content needs review Email Template');
     // Test dependencies.
     $approver = Template::load('needs_review');
-    $depenencies = $approver->calculateDependencies()->getDependencies()['config'];
-    $this->assertTrue(in_array('user.role.approver', $depenencies, TRUE));
+    $dependencies = $approver->calculateDependencies()->getDependencies()['config'];
+    $this->assertTrue(in_array('user.role.approver', $dependencies, TRUE));
     $approver = Template::load('approved');
-    $depenencies = $approver->calculateDependencies()->getDependencies()['config'];
-    $this->assertTrue(in_array('field.storage.node.field_email', $depenencies, TRUE));
+    $dependencies = $approver->calculateDependencies()->getDependencies()['config'];
+    $this->assertTrue(in_array('field.storage.node.field_email', $dependencies, TRUE));
     // Edit the template and test values persisted.
     $page->clickLink('Content approved');
     $this->outputPage();
@@ -235,10 +235,11 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $this->submitForm([
       'workbench_email_templates[approved]' => TRUE,
     ], t('Save'));
+    \Drupal::entityTypeManager()->getStorage('moderation_state_transition')->resetCache();
     $transition = ModerationStateTransition::load('needs_review_published');
     $this->assertEquals(['approved' => 'approved'], $transition->getThirdPartySetting('workbench_email', 'workbench_email_templates'));
-    $depenencies = $transition->calculateDependencies()->getDependencies()['config'];
-    $this->assertTrue(in_array('workbench_email.workbench_email_template.approved', $depenencies, TRUE));
+    $dependencies = $transition->calculateDependencies()->getDependencies()['config'];
+    $this->assertTrue(in_array('workbench_email.workbench_email_template.approved', $dependencies, TRUE));
     // Edit the transition from draft to needs review and add email config:
     // approver template.
     $this->drupalGet('admin/structure/workbench-moderation/transitions/draft_needs_review');

@@ -5,9 +5,6 @@
  * Provides main module functions.
  */
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\field\Entity\FieldConfig;
-use Drupal\user\Entity\Role;
-use Drupal\user\RoleInterface;
 use Drupal\workbench_email\Entity\Template;
 use Drupal\workbench_email\TemplateInterface;
 use Drupal\workbench_moderation\ModerationStateTransitionInterface;
@@ -28,26 +25,6 @@ function workbench_email_form_moderation_state_transition_edit_form_alter(&$form
     return;
   }
   $transition = $form_object->getEntity();
-  // Defaults.
-  $defaults = $transition->getThirdPartySettings('workbench_email') + [
-    'roles' => [],
-    'fields' => [],
-    'author' => FALSE,
-    'templates' => [],
-  ];
-  // Add the roles.
-  $roles = array_filter(Role::loadMultiple(), function(RoleInterface $role) {
-    return !in_array($role->id(), [
-      RoleInterface::ANONYMOUS_ID,
-      RoleInterface::AUTHENTICATED_ID,
-    ], TRUE);
-  });
-  $role_options = array_map(function (RoleInterface $role) {
-    return $role->label();
-  }, $roles);
-  $enabled = (bool) array_filter($defaults, function($item) {
-    return !empty($item);
-  });
 
   // Add the template selection field.
   $template_options = array_map(function (TemplateInterface $template) {
@@ -58,7 +35,7 @@ function workbench_email_form_moderation_state_transition_edit_form_alter(&$form
     '#title' => t('Email Templates'),
     '#description' => t('Use the following mail templates'),
     '#options' => $template_options,
-    '#default_value' => $defaults['templates'],
+    '#default_value' => $transition->getThirdPartySetting('workbench_email', 'workbench_email_templates', []),
     '#access' => $template_options,
   ];
 
@@ -71,8 +48,21 @@ function workbench_email_form_moderation_state_transition_edit_form_alter(&$form
  *
  * @see workbench_email_form_moderation_state_transition_edit_form_alter()
  */
-function workbench_email_transition_edit_builder($entity_type, ModerationStateTransitionInterface $contact_form, &$form, FormStateInterface $form_state) {
-  $contact_form->setThirdPartySetting('workbench_email', 'workbench_email_templates', array_filter($form_state->getValue('workbench_email_templates')));
+function workbench_email_transition_edit_builder($entity_type, ModerationStateTransitionInterface $transition, &$form, FormStateInterface $form_state) {
+  $transition->setThirdPartySetting('workbench_email', 'workbench_email_templates', array_filter($form_state->getValue('workbench_email_templates')));
 }
 
-// Alter the dependencies for transitions
+/**
+ * Implements hook_ENTITY_TYPE_presave().
+ */
+function workbench_email_moderation_state_transition_presave(ModerationStateTransitionInterface $transition) {
+  if (!$transition->isSyncing()) {
+    $dependencies = $transition->get('dependencies');
+    foreach ($transition->getThirdPartySetting('workbench_email', 'workbench_email_templates', []) as $template) {
+      $dependencies['enforced']['config'][] = 'workbench_email.workbench_email_template.' . $template;
+    }
+    // Ensure no duplicates.
+    $dependencies['enforced']['config'] = array_unique($dependencies['enforced']['config']);
+    $transition->set('dependencies', $dependencies);
+  }
+}
