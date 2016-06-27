@@ -2,14 +2,15 @@
 
 namespace Drupal\Tests\workbench_email\Functional;
 
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
 use Drupal\Core\Test\AssertMailTrait;
 use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\Entity\NodeType;
 use Drupal\simpletest\BlockCreationTrait;
+use Drupal\simpletest\NodeCreationTrait;
 use Drupal\Tests\BrowserTestBase;
-use Drupal\user\Entity\Role;
 use Drupal\workbench_email\Entity\Template;
 use Drupal\workbench_moderation\Entity\ModerationState;
 use Drupal\workbench_moderation\Entity\ModerationStateTransition;
@@ -27,6 +28,7 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
 
   use AssertMailTrait;
   use BlockCreationTrait;
+  use NodeCreationTrait;
 
   /**
    * Test node type.
@@ -108,7 +110,8 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     ]);
     $this->nodeType->setThirdPartySetting('workbench_moderation', 'enabled', TRUE);
     $states = array_keys(ModerationState::loadMultiple());
-    $this->nodeType->setThirdPartySetting('workbench_moderation', 'allowed_moderation_state', array_combine($states, $states));
+    $this->nodeType->setThirdPartySetting('workbench_moderation', 'allowed_moderation_states', $states);
+    $this->nodeType->setThirdPartySetting('workbench_moderation', 'default_moderation_state', 'draft');
     $this->nodeType->save();
     // Create an approver role and two users.
     $this->approverRole = $this->drupalCreateRole([
@@ -134,6 +137,7 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'create test content',
       'view test revisions',
       'use draft_needs_review transition',
+      'use draft_draft transition',
     ], 'editor', 'Editor');
     $this->editor = $this->drupalCreateUser();
     $this->editor->addRole('editor');
@@ -147,7 +151,6 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     // Add an email field notify to the node-type.
     FieldStorageConfig::create([
       'cardinality' => 1,
-      'id' => 'node.field_email',
       'entity_type' => 'node',
       'field_name' => 'field_email',
       'type' => 'email',
@@ -158,6 +161,15 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'label' => 'Notify',
       'entity_type' => 'node',
     ])->save();
+    if (!$entity_form_display = EntityFormDisplay::load('node.test.default')) {
+      $entity_form_display = EntityFormDisplay::create(array(
+        'targetEntityType' => 'node',
+        'bundle' => 'test',
+        'mode' => 'default',
+        'status' => TRUE,
+      ));
+    }
+    $entity_form_display->setComponent('field_email', ['type' => 'email_default'])->save();
   }
 
   /**
@@ -247,8 +259,26 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'workbench_email_templates[needs_review]' => TRUE,
     ], t('Save'));
     // Create a node and add to the notifier field.
+    $this->drupalLogin($this->editor);
+    $this->drupalGet('node/add/test');
+    $this->submitForm([
+      'title[0][value]' => 'Test node',
+      'field_email[0][value]' => 'foo@example.com',
+    ], 'Save and Create New Draft');
+    $node = $this->getNodeByTitle('Test node');
     // Transition to needs review.
+    $this->drupalGet('node/' . $node->id() . '/edit');
+    $this->submitForm([], 'Save and Request Review');
     // Check mail goes to approvers.
+    $captured_emails = $this->container->get('state')->get('system.test_mail_collector') ?: [];
+    $last = end($captured_emails);
+    $prev = prev($captured_emails);
+    $this->assertTrue($prev && isset($prev['to']) && $prev['to'] == $this->approver1->mail->value);
+    $this->assertTrue($last && isset($last['to']) && $last['to'] == $this->approver2->mail->value);
+    $this->assertEquals('Content needs review', $last['subject']);
+    $this->assertEquals('Content needs review', $prev['subject']);
+    $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s.', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])), $prev['body']);
+    $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s.', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])), $last['body']);
     // Login as approver and transition to approved.
     // Check mail goes to author and notifier.
   }
