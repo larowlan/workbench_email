@@ -277,8 +277,8 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $this->assertTrue($last && isset($last['to']) && $last['to'] == $this->approver2->mail->value);
     $this->assertEquals('Content needs review', $last['subject']);
     $this->assertEquals('Content needs review', $prev['subject']);
-    $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s.', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])), $prev['body']);
-    $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s.', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])), $last['body']);
+    $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $prev['body']));
+    $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $last['body']));
     // Login as approver and transition to approved.
     // Check mail goes to author and notifier.
   }

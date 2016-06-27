@@ -5,6 +5,7 @@
  * Provides main module functions.
  */
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Mail\MailFormatHelper;
 use Drupal\workbench_email\Entity\Template;
 use Drupal\workbench_email\TemplateInterface;
 use Drupal\workbench_moderation\ModerationStateTransitionInterface;
@@ -64,5 +65,25 @@ function workbench_email_moderation_state_transition_presave(ModerationStateTran
     // Ensure no duplicates.
     $dependencies['enforced']['config'] = array_unique($dependencies['enforced']['config']);
     $transition->set('dependencies', $dependencies);
+  }
+}
+
+/**
+ * Implements hook_mail().
+ */
+function workbench_email_mail($key, &$message, $params) {
+  if (strpos($key, 'template::') === 0) {
+    // Mailing one of our templates.
+    $message['subject'] = $params['subject'];
+    if (\Drupal::moduleHandler()->moduleExists('swiftmailer')) {
+      // If swiftmailer exists, we send in HTML.
+      $message['headers']['Content-Type'] = 'text/html';
+      $message['params']['convert'] = TRUE;
+      $message['body'][] = $params['body'];
+    }
+    else {
+      // Strip out any HTML.
+      $message['body'][] = MailFormatHelper::htmlToText($params['body']);
+    }
   }
 }
