@@ -6,18 +6,27 @@
  */
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Mail\MailFormatHelper;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\workbench_email\Entity\Template;
 use Drupal\workbench_email\TemplateInterface;
 use Drupal\workbench_moderation\ModerationStateTransitionInterface;
 
 /**
+ * Implements hook_help().
+ */
+function workbench_email_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'entity.workbench_email_template.collection':
+    case 'help.page.workbench_email':
+      return '<p>' . t("The Workbench Moderation Email module keeps track of when a piece of entity transitions from one state to another. Admins can create new templates to manage the contents and recipients of email sent when those transitions happen.") . '</p><p>Each template can be attached to a transition by editing the transition and selecting the templates to use.</p>';
+  }
+}
+
+/**
  * Implements hook_form_FORM_ID_alter() for moderation_state_transition_edit_form.
  */
 function workbench_email_form_moderation_state_transition_edit_form_alter(&$form, FormStateInterface $form_state) {
-  // Alter the transition form to add the fields to choose:
-  // - roles;
-  // - fields; and
-  // - author flag.
+  // Alter the transition form to add the fields to choose the templates.
   /** @var ModerationStateTransitionInterface $transition */
 
   $form_object = $form_state->getFormObject();
