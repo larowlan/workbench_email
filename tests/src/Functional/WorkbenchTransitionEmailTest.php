@@ -12,6 +12,7 @@ use Drupal\Tests\BrowserTestBase;
 use Drupal\user\Entity\Role;
 use Drupal\workbench_email\Entity\Template;
 use Drupal\workbench_moderation\Entity\ModerationState;
+use Drupal\workbench_moderation\Entity\ModerationStateTransition;
 
 /**
  * Tests the view access control handler for moderation state entities.
@@ -228,12 +229,22 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'subject' => 'Content needs review',
     ], t('Save'));
     $assert->pageTextContains('Saved the Content needs review Email Template');
-    // Edit the transition from needs review to published and add email config:
-    // - email author; and
-    // - email someone in notifier field.
+    // Edit the transition from needs review to published and use the
+    // needs_review email template.
     $this->drupalGet('admin/structure/workbench-moderation/transitions/needs_review_published');
+    $this->submitForm([
+      'workbench_email_templates[approved]' => TRUE,
+    ], t('Save'));
+    $transition = ModerationStateTransition::load('needs_review_published');
+    $this->assertEquals(['approved' => 'approved'], $transition->getThirdPartySetting('workbench_email', 'workbench_email_templates'));
+    $depenencies = $transition->calculateDependencies()->getDependencies()['config'];
+    $this->assertTrue(in_array('workbench_email.workbench_email_template.approved', $depenencies, TRUE));
     // Edit the transition from draft to needs review and add email config:
-    // - email approver
+    // approver template.
+    $this->drupalGet('admin/structure/workbench-moderation/transitions/draft_needs_review');
+    $this->submitForm([
+      'workbench_email_templates[needs_review]' => TRUE,
+    ], t('Save'));
     // Create a node and add to the notifier field.
     // Transition to needs review.
     // Check mail goes to approvers.

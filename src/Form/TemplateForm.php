@@ -76,13 +76,13 @@ class TemplateForm extends EntityForm {
     }, $roles);
     $form['recipients'] = [
       '#type' => 'details',
-      '#title' => t('Recipients'),
+      '#title' => $this->t('Recipients'),
       '#open' => TRUE,
     ];
     $form['recipients']['roles'] = [
       '#type' => 'checkboxes',
-      '#title' => t('Roles'),
-      '#description' => t('Send to all users with selected roles'),
+      '#title' => $this->t('Roles'),
+      '#description' => $this->t('Send to all users with selected roles'),
       '#options' => $role_options,
       '#default_value' => $workbench_email_template->getRoles(),
     ];
@@ -106,8 +106,8 @@ class TemplateForm extends EntityForm {
     }
     $form['recipients']['fields'] = [
       '#type' => 'checkboxes',
-      '#title' => t('Email Fields'),
-      '#description' => t('Send to mail address found in the selected fields'),
+      '#title' => $this->t('Email Fields'),
+      '#description' => $this->t('Send to mail address found in the selected fields'),
       '#options' => $field_options,
       '#default_value' => $workbench_email_template->getFields(),
     ];
@@ -115,8 +115,8 @@ class TemplateForm extends EntityForm {
     $form['recipients']['author'] = [
       '#type' => 'checkbox',
       '#default_value' => $workbench_email_template->isAuthor(),
-      '#title' => t('Author'),
-      '#description' => t('Send to entity author/owner'),
+      '#title' => $this->t('Author'),
+      '#description' => $this->t('Send to entity author/owner'),
     ];
     return $form;
   }

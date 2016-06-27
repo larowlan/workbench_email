@@ -2,7 +2,7 @@ workbench_moderation.moderation_state_transition.*.third_party.contact_storage:
   type: mapping
   label: 'Workbench email settings'
   mapping:
-    templates:
+    workbench_email_templates:
       type: sequence
       label: 'Templates'
       sequence:

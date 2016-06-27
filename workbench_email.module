@@ -53,7 +53,7 @@ function workbench_email_form_moderation_state_transition_edit_form_alter(&$form
   $template_options = array_map(function (TemplateInterface $template) {
     return $template->label();
   }, Template::loadMultiple());
-  $form['templates'] = [
+  $form['workbench_email_templates'] = [
     '#type' => 'checkboxes',
     '#title' => t('Email Templates'),
     '#description' => t('Use the following mail templates'),
@@ -72,7 +72,7 @@ function workbench_email_form_moderation_state_transition_edit_form_alter(&$form
  * @see workbench_email_form_moderation_state_transition_edit_form_alter()
  */
 function workbench_email_transition_edit_builder($entity_type, ModerationStateTransitionInterface $contact_form, &$form, FormStateInterface $form_state) {
-  $contact_form->setThirdPartySetting('workbench_email', 'template', $form_state->getValue('workbench_email_template'));
+  $contact_form->setThirdPartySetting('workbench_email', 'workbench_email_templates', array_filter($form_state->getValue('workbench_email_templates')));
 }
 
 // Alter the dependencies for transitions
