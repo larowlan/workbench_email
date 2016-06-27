@@ -280,7 +280,19 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $prev['body']));
     $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $last['body']));
     // Login as approver and transition to approved.
+    $this->drupalLogin($this->approver1);
+    $this->drupalGet('node/' . $node->id() . '/edit');
+    $this->submitForm([], 'Save and Publish');
     // Check mail goes to author and notifier.
+    $captured_emails = $this->container->get('state')->get('system.test_mail_collector') ?: [];
+    $last = end($captured_emails);
+    $prev = prev($captured_emails);
+    $this->assertTrue($prev && isset($prev['to']) && $prev['to'] == $this->editor->getEmail());
+    $this->assertTrue($last && isset($last['to']) && $last['to'] == 'foo@example.com');
+    $this->assertEquals('Content approved', $last['subject']);
+    $this->assertEquals('Content approved', $prev['subject']);
+    $this->assertContains(sprintf('Content with title %s was approved. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $prev['body']));
+    $this->assertContains(sprintf('Content with title %s was approved. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $last['body']));
   }
 }
 
