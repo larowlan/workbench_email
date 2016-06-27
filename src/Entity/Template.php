@@ -68,6 +68,27 @@ class Template extends ConfigEntityBase implements TemplateInterface {
   protected $subject;
 
   /**
+   * Fields to get email from.
+   *
+   * @var string[]
+   */
+  protected $fields = [];
+
+  /**
+   * Roles to send to.
+   *
+   * @var string[]
+   */
+  protected $roles = [];
+
+  /**
+   * Send to entity owner.
+   *
+   * @var bool
+   */
+  protected $author = FALSE;
+
+  /**
    * {@inheritdoc}
    */
   public function getSubject() {
@@ -94,6 +115,66 @@ class Template extends ConfigEntityBase implements TemplateInterface {
    */
   public function setSubject($subject) {
     $this->subject = $subject;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isAuthor() {
+    return $this->author;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setAuthor($author) {
+    $this->author = $author;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getFields() {
+    return $this->fields;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setFields(array $fields) {
+    $this->fields = $fields;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getRoles() {
+    return $this->roles;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setRoles(array $roles) {
+    $this->roles = $roles;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function calculateDependencies() {
+    parent::calculateDependencies();
+    foreach ($this->roles as $role) {
+      $this->addDependency('config', 'user.role.' . $role);
+    }
+    foreach ($this->fields as $field) {
+      list($entity_type, $field_name) = explode(':', $field, 2);
+      $this->addDependency('config', "field.storage.$entity_type.$field_name");
+    }
     return $this;
   }
 

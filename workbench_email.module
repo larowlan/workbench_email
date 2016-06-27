@@ -4,12 +4,75 @@
  * @file
  * Provides main module functions.
  */
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\user\Entity\Role;
+use Drupal\user\RoleInterface;
+use Drupal\workbench_email\Entity\Template;
+use Drupal\workbench_email\TemplateInterface;
+use Drupal\workbench_moderation\ModerationStateTransitionInterface;
 
+/**
+ * Implements hook_form_FORM_ID_alter() for moderation_state_transition_edit_form.
+ */
+function workbench_email_form_moderation_state_transition_edit_form_alter(&$form, FormStateInterface $form_state) {
+  // Alter the transition form to add the fields to choose:
+  // - roles;
+  // - fields; and
+  // - author flag.
+  /** @var ModerationStateTransitionInterface $transition */
 
-// Alter the transition form to add the fields to choose
-// - roles
-// - fields
-// - author flag
-// with an entity builder
+  $form_object = $form_state->getFormObject();
+  if (!in_array($form_object->getOperation(), ['edit', 'add'], TRUE)) {
+    // Only alter the edit and add forms.
+    return;
+  }
+  $transition = $form_object->getEntity();
+  // Defaults.
+  $defaults = $transition->getThirdPartySettings('workbench_email') + [
+    'roles' => [],
+    'fields' => [],
+    'author' => FALSE,
+    'templates' => [],
+  ];
+  // Add the roles.
+  $roles = array_filter(Role::loadMultiple(), function(RoleInterface $role) {
+    return !in_array($role->id(), [
+      RoleInterface::ANONYMOUS_ID,
+      RoleInterface::AUTHENTICATED_ID,
+    ], TRUE);
+  });
+  $role_options = array_map(function (RoleInterface $role) {
+    return $role->label();
+  }, $roles);
+  $enabled = (bool) array_filter($defaults, function($item) {
+    return !empty($item);
+  });
 
-// Alter the dependencies
+  // Add the template selection field.
+  $template_options = array_map(function (TemplateInterface $template) {
+    return $template->label();
+  }, Template::loadMultiple());
+  $form['templates'] = [
+    '#type' => 'checkboxes',
+    '#title' => t('Email Templates'),
+    '#description' => t('Use the following mail templates'),
+    '#options' => $template_options,
+    '#default_value' => $defaults['templates'],
+    '#access' => $template_options,
+  ];
+
+  // And add an entity builder.
+  $form['#entity_builders'][] = 'workbench_email_transition_edit_builder';
+}
+
+/**
+ * Entity builder for the transition form edit form with third party options.
+ *
+ * @see workbench_email_form_moderation_state_transition_edit_form_alter()
+ */
+function workbench_email_transition_edit_builder($entity_type, ModerationStateTransitionInterface $contact_form, &$form, FormStateInterface $form_state) {
+  $contact_form->setThirdPartySetting('workbench_email', 'template', $form_state->getValue('workbench_email_template'));
+}
+
+// Alter the dependencies for transitions

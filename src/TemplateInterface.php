@@ -47,4 +47,61 @@ interface TemplateInterface extends ConfigEntityInterface {
    */
   public function setSubject($subject);
 
+  /**
+   * Gets value of author.
+   *
+   * @return boolean
+   *   Value of author
+   */
+  public function isAuthor();
+
+  /**
+   * Sets author.
+   *
+   * @param boolean $author
+   *   New value for author.
+   *
+   * @return self
+   *   Instance called.
+   */
+  public function setAuthor($author);
+
+  /**
+   * Gets value of fields.
+   *
+   * @return string[]
+   *   Value of fields
+   */
+  public function getFields();
+
+  /**
+   * Sets fields.
+   *
+   * @param string[] $fields
+   *   New value for fields.
+   *
+   * @return self
+   *   Instance called.
+   */
+  public function setFields(array $fields);
+
+  /**
+   * Gets value of roles.
+   *
+   * @return string[]
+   *   Value of roles
+   */
+  public function getRoles();
+
+  /**
+   * Sets roles.
+   *
+   * @param string[] $roles
+   *   New value for roles.
+   *
+   * @return self
+   *   Instance called.
+   */
+  public function setRoles(array $roles);
+
 }

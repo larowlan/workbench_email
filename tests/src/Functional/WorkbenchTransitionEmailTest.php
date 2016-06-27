@@ -10,6 +10,7 @@ use Drupal\node\Entity\NodeType;
 use Drupal\simpletest\BlockCreationTrait;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\user\Entity\Role;
+use Drupal\workbench_email\Entity\Template;
 use Drupal\workbench_moderation\Entity\ModerationState;
 
 /**
@@ -155,7 +156,19 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'bundle' => 'test',
       'label' => 'Notify',
       'entity_type' => 'node',
-    ]);
+    ])->save();
+  }
+
+  /**
+   * Outputs the page for debugging sake.
+   */
+  protected function outputPage() {
+    $url = $this->getSession()->getCurrentUrl();
+    $html_output = 'GET request to: ' . $url .
+      '<hr />Ending URL: ' . $this->getSession()->getCurrentUrl();
+    $html_output .= '<hr />' . $this->getSession()->getPage()->getHtml();
+    $html_output .= $this->getHtmlOutputHeaders();
+    $this->htmlOutput($html_output);
   }
 
   /**
@@ -173,23 +186,42 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $this->assertEquals($this->getSession()->getCurrentUrl(), Url::fromUri('internal:/admin/structure/workbench-moderation/workbench-email-template')->setOption('absolute', TRUE)->toString());
     $assert->pageTextContains('Email Template');
     $page->clickLink('Add Email Template');
+    $this->outputPage();
     $this->submitForm([
       'id' => 'approved',
       'label' => 'Content approved',
       'body[value]' => 'Content with title [node:title] was approved. You can view it at [node:url].',
       'subject' => 'Content approved',
+      'fields[node:field_email]' => TRUE,
+      'author' => TRUE,
     ], t('Save'));
     $assert->pageTextContains('Created the Content approved Email Template');
     $page->clickLink('Add Email Template');
+    $this->outputPage();
     $this->submitForm([
       'id' => 'needs_review',
       'label' => 'Content needs review',
       'body[value]' => 'Content with title [node:title] needs review. You can view it at [node:url].',
       'subject' => 'Content needs review',
+      'roles[approver]' => TRUE,
     ], t('Save'));
     $assert->pageTextContains('Created the Content needs review Email Template');
-    // Edit the template.
+    // Test dependencies.
+    $approver = Template::load('needs_review');
+    $depenencies = $approver->calculateDependencies()->getDependencies()['config'];
+    $this->assertTrue(in_array('user.role.approver', $depenencies, TRUE));
+    $approver = Template::load('approved');
+    $depenencies = $approver->calculateDependencies()->getDependencies()['config'];
+    $this->assertTrue(in_array('field.storage.node.field_email', $depenencies, TRUE));
+    // Edit the template and test values persisted.
+    $page->clickLink('Content approved');
+    $this->outputPage();
+    $assert->checkboxChecked('Notify (Content)');
+    $this->getSession()->back();
+    // Test editing a template.
     $page->clickLink('Content needs review');
+    $this->outputPage();
+    $assert->checkboxChecked('Approver');
     $this->submitForm([
       'label' => 'Content needs review',
       'body[value]' => 'Content with title [node:title] needs review. You can view it at [node:url].',
@@ -200,11 +232,6 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     // - email author; and
     // - email someone in notifier field.
     $this->drupalGet('admin/structure/workbench-moderation/transitions/needs_review_published');
-    $this->submitForm([
-      'fields[field_email]' => TRUE,
-      'author' => TRUE,
-      'notifications[approved]' => TRUE,
-    ], t('Save'));
     // Edit the transition from draft to needs review and add email config:
     // - email approver
     // Create a node and add to the notifier field.
