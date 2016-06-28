@@ -82,6 +82,13 @@ class Template extends ConfigEntityBase implements TemplateInterface {
   protected $roles = [];
 
   /**
+   * Entity bundles.
+   *
+   * @var string[]
+   */
+  protected $bundles = [];
+
+  /**
    * Send to entity owner.
    *
    * @var bool
@@ -175,6 +182,27 @@ class Template extends ConfigEntityBase implements TemplateInterface {
       list($entity_type, $field_name) = explode(':', $field, 2);
       $this->addDependency('config', "field.storage.$entity_type.$field_name");
     }
+    foreach ($this->bundles as $bundle) {
+      list($entity_type_id, $bundle_id) = explode(':', $bundle, 2);
+      $entity_type = \Drupal::entityTypeManager()->getDefinition($entity_type_id);
+      $bundle_config_dependency = $entity_type->getBundleConfigDependency($bundle_id);
+      $this->addDependency($bundle_config_dependency['type'], $bundle_config_dependency['name']);
+    }
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getBundles() {
+    return $this->bundles;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setBundles($bundles) {
+    $this->bundles = $bundles;
     return $this;
   }
 

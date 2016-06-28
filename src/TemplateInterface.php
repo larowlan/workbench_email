@@ -104,4 +104,23 @@ interface TemplateInterface extends ConfigEntityInterface {
    */
   public function setRoles(array $roles);
 
+  /**
+   * Gets value of bundles.
+   *
+   * @return string[]
+   *   Value of bundles
+   */
+  public function getBundles();
+
+  /**
+   * Sets bundles this template applies to.
+   *
+   * @param string[] $bundles
+   *   Bundles this template applies to in {entity_type_id}:{bundle} format.
+   *
+   * @return self
+   *   Called instance.
+   */
+  public function setBundles($bundles);
+
 }

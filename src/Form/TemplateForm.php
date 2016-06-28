@@ -2,13 +2,18 @@
 
 namespace Drupal\workbench_email\Form;
 
+use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\user\Entity\Role;
 use Drupal\user\RoleInterface;
+use Drupal\workbench_moderation\ModerationInformationInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Class TemplateForm.
@@ -16,6 +21,57 @@ use Drupal\user\RoleInterface;
  * @package Drupal\workbench_email\Form
  */
 class TemplateForm extends EntityForm {
+
+  /**
+   * Entity type manager.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   */
+  protected $entityTypeManager;
+
+  /**
+   * Entity field manager.
+   *
+   * @var \Drupal\Core\Entity\EntityFieldManagerInterface
+   */
+  protected $entityFieldManager;
+
+  /**
+   * Entity Bundle info.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface
+   */
+  protected $entityBundleInfo;
+
+  /**
+   * Moderation info.
+   *
+   * @var \Drupal\workbench_moderation\ModerationInformationInterface
+   */
+  protected $moderationInfo;
+
+  /**
+   * Constructs a new TemplateForm object.
+   *
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+   *   Entity type manager.
+   * @param \Drupal\Core\Entity\EntityFieldManagerInterface $entity_field_manager
+   *   Entity field manager.
+   */
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, EntityFieldManagerInterface $entity_field_manager, EntityTypeBundleInfoInterface $entity_bundle_info, ModerationInformationInterface $moderation_info) {
+    $this->entityTypeManager = $entity_type_manager;
+    $this->entityFieldManager = $entity_field_manager;
+    $this->entityBundleInfo = $entity_bundle_info;
+    $this->moderationInfo = $moderation_info;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static($container->get('entity_type.manager'), $container->get('entity_field.manager'), $container->get('entity_type.bundle.info'), $container->get('workbench_moderation.moderation_information'));
+  }
+
   /**
    * {@inheritdoc}
    */
@@ -53,9 +109,9 @@ class TemplateForm extends EntityForm {
     ];
 
     $default_body = $workbench_email_template->getBody() + [
-      'value' => '',
-      'format' => 'plain_text',
-    ];
+        'value' => '',
+        'format' => 'plain_text',
+      ];
     $form['body'] = [
       '#type' => 'text_format',
       '#title' => $this->t('Body'),
@@ -65,7 +121,8 @@ class TemplateForm extends EntityForm {
       '#default_value' => $default_body['value'],
     ];
     // Add the roles.
-    $roles = array_filter(Role::loadMultiple(), function(RoleInterface $role) {
+    $roles = array_filter($this->entityTypeManager->getStorage('user_role')
+      ->loadMultiple(), function (RoleInterface $role) {
       return !in_array($role->id(), [
         RoleInterface::ANONYMOUS_ID,
         RoleInterface::AUTHENTICATED_ID,
@@ -87,20 +144,22 @@ class TemplateForm extends EntityForm {
       '#default_value' => $workbench_email_template->getRoles(),
     ];
     // Add the fields.
-    /** @var \Drupal\Core\Entity\EntityFieldManagerInterface $field_manager */
-    $field_manager = \Drupal::service('entity_field.manager');
-    $entity_type_manager = \Drupal::entityTypeManager();
-    $fields = $field_manager->getFieldMapByFieldType('email');
+    $fields = $this->entityFieldManager->getFieldMapByFieldType('email');
     $field_options = [];
     foreach ($fields as $entity_type_id => $entity_type_fields) {
-      $base = $field_manager->getBaseFieldDefinitions($entity_type_id);
-      $entity_type = $entity_type_manager->getDefinition($entity_type_id);
+      $entity_type = $this->entityTypeManager->getDefinition($entity_type_id);
+      if (!$this->moderationInfo->isModeratableEntityType($entity_type)) {
+        // These fields are irrelevant, the entity type isn't moderated.
+        continue;
+      }
+      $base = $this->entityFieldManager->getBaseFieldDefinitions($entity_type_id);
       foreach ($entity_type_fields as $field_name => $field_detail) {
         if (in_array($field_name, array_keys($base), TRUE)) {
           continue;
         }
         $sample_bundle = reset($field_detail['bundles']);
-        $sample_field = FieldConfig::load($entity_type_id . '.' . $sample_bundle . '.' . $field_name);
+        $sample_field = $this->entityTypeManager->getStorage('field_config')
+          ->load($entity_type_id . '.' . $sample_bundle . '.' . $field_name);
         $field_options[$entity_type_id . ':' . $field_name] = $sample_field->label() . ' (' . $entity_type->getLabel() . ')';
       }
     }
@@ -117,6 +176,30 @@ class TemplateForm extends EntityForm {
       '#default_value' => $workbench_email_template->isAuthor(),
       '#title' => $this->t('Author'),
       '#description' => $this->t('Send to entity author/owner'),
+    ];
+    $bundle_options = [];
+    foreach ($this->entityTypeManager->getDefinitions() as $entity_type) {
+      if (!$this->moderationInfo->isModeratableEntityType($entity_type) || !($bundle_entity_type = $entity_type->getBundleEntityType())) {
+        // Irrelevant - continue.
+        continue;
+      }
+      $entity_type_id = $entity_type->id();
+      $bundles = $this->entityBundleInfo->getBundleInfo($entity_type_id);
+      $bundle_storage = $this->entityTypeManager->getStorage($bundle_entity_type);
+      $bundle_entities = $bundle_storage->loadMultiple(array_keys($bundles));
+      foreach ($bundle_entities as $bundle_id => $bundle) {
+        if ($bundle->getThirdPartySetting('workbench_moderation', 'enabled', FALSE)) {
+          $bundle_options["$entity_type_id:$bundle_id"] = $bundle->label() . ' (' . $entity_type->getLabel() . ')';
+        }
+      }
+    }
+    $form['bundles'] = [
+      '#type' => 'checkboxes',
+      '#options' => $bundle_options,
+      '#access' => !empty($bundle_options),
+      '#default_value' => $workbench_email_template->getBundles(),
+      '#title' => $this->t('Bundles'),
+      '#description' => $this->t('Limit to the following bundles. Select none to include all bundles.'),
     ];
     return $form;
   }
@@ -151,6 +234,7 @@ class TemplateForm extends EntityForm {
     // Filter out unchecked items.
     $entity->set('roles', array_filter($entity->get('roles')));
     $entity->set('fields', array_filter($entity->get('fields')));
+    $entity->set('bundles', array_filter($entity->get('bundles')));
   }
 
 }

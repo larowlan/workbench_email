@@ -4,7 +4,6 @@ namespace Drupal\workbench_email\EventSubscriber;
 
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Mail\MailManager;
 use Drupal\Core\Render\RendererInterface;
@@ -107,6 +106,10 @@ class WorkbenchTransitionEventSubscriber implements EventSubscriberInterface {
       $transition = reset($transitions);
       /** @var \Drupal\workbench_email\TemplateInterface $template */
       foreach ($this->entityTypeManager->getStorage('workbench_email_template')->loadMultiple($transition->getThirdPartySetting('workbench_email', 'workbench_email_templates', [])) as $template) {
+        if ($template->getBundles() && !in_array($entity->getEntityTypeId() . ':' . $entity->bundle(), $template->getBundles(), TRUE)) {
+          // Continue, invalid bundle.
+          continue;
+        }
         $body = $template->getBody();
         $body['value'] = $this->token->replace($body['value'], [$entity->getEntityTypeId() => $entity]);
         $subject = $template->getSubject();
@@ -140,7 +143,9 @@ class WorkbenchTransitionEventSubscriber implements EventSubscriberInterface {
   protected function prepareRecipients(ContentEntityInterface $entity, TemplateInterface $template) {
     $recipients = [];
     if ($template->isAuthor() && $entity instanceof EntityOwnerInterface) {
-      $recipients[] = $entity->getOwner()->getEmail();
+      if (!$entity->getOwner()->isAnonymous()) {
+        $recipients[] = $entity->getOwner()->getEmail();
+      }
     }
     foreach ($template->getRoles() as $role) {
       foreach ($this->entityTypeManager->getStorage('user')->loadByProperties([

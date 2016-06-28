@@ -28,6 +28,12 @@ workbench_email.workbench_email_template.*:
       sequence:
         type: string
         label: 'Role'
+    bundles:
+      type: sequence
+      label: 'Bundles'
+      sequence:
+        type: string
+        label: 'Bundle'
     fields:
       type: sequence
       label: 'Mail fields'
