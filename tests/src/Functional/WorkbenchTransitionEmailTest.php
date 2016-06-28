@@ -232,6 +232,7 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $approver = Template::load('needs_review');
     $dependencies = $approver->calculateDependencies()->getDependencies()['config'];
     $this->assertTrue(in_array('user.role.approver', $dependencies, TRUE));
+    $this->assertTrue(in_array('node.type.test', $dependencies, TRUE));
     $approver = Template::load('approved');
     $dependencies = $approver->calculateDependencies()->getDependencies()['config'];
     $this->assertTrue(in_array('field.storage.node.field_email', $dependencies, TRUE));
