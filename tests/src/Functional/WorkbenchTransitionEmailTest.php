@@ -8,6 +8,7 @@ use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\Entity\NodeType;
+use Drupal\node\NodeTypeInterface;
 use Drupal\simpletest\BlockCreationTrait;
 use Drupal\simpletest\NodeCreationTrait;
 use Drupal\Tests\BrowserTestBase;
@@ -103,16 +104,17 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $this->placeBlock('local_tasks_block', ['id' => 'tabs_block']);
     $this->placeBlock('page_title_block');
     $this->placeBlock('local_actions_block', ['id' => 'actions_block']);
-    // Create a node-type and make it moderated.
+    // Create two node-types and make them moderated.
     $this->nodeType = NodeType::create([
       'type' => 'test',
       'name' => 'Test',
     ]);
-    $this->nodeType->setThirdPartySetting('workbench_moderation', 'enabled', TRUE);
-    $states = array_keys(ModerationState::loadMultiple());
-    $this->nodeType->setThirdPartySetting('workbench_moderation', 'allowed_moderation_states', $states);
-    $this->nodeType->setThirdPartySetting('workbench_moderation', 'default_moderation_state', 'draft');
-    $this->nodeType->save();
+    $this->setupModerationForNodeType($this->nodeType);
+    $this->nodeType = NodeType::create([
+      'type' => 'another',
+      'name' => 'Another Test',
+    ]);
+    $this->setupModerationForNodeType($this->nodeType);
     // Create an approver role and two users.
     $this->approverRole = $this->drupalCreateRole([
       'view any unpublished content',
@@ -120,6 +122,9 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'edit any test content',
       'create test content',
       'view test revisions',
+      'edit any another content',
+      'create another content',
+      'view another revisions',
       'use draft_needs_review transition',
       'use needs_review_published transition',
     ], 'approver', 'Approver');
@@ -136,6 +141,9 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'edit any test content',
       'create test content',
       'view test revisions',
+      'edit any another content',
+      'create another content',
+      'view another revisions',
       'use draft_needs_review transition',
       'use draft_draft transition',
     ], 'editor', 'Editor');
@@ -217,6 +225,7 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'body[value]' => 'Content with title [node:title] needs review. You can view it at [node:url].',
       'subject' => 'Content needs review',
       'roles[approver]' => TRUE,
+      'bundles[node:test]' => TRUE,
     ], t('Save'));
     $assert->pageTextContains('Created the Content needs review Email Template');
     // Test dependencies.
@@ -293,6 +302,37 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $this->assertEquals('Content approved', $prev['subject']);
     $this->assertContains(sprintf('Content with title %s was approved. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $prev['body']));
     $this->assertContains(sprintf('Content with title %s was approved. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $last['body']));
+    // Try with the other node type, that isn't enabled.
+    // Log back in as editor.
+    $this->drupalLogin($this->editor);
+    // Reset mail.
+    $this->container->get('state')->set('system.test_mail_collector', []);
+    $this->drupalGet('node/add/another');
+    $this->submitForm([
+      'title[0][value]' => 'Another test node',
+    ], 'Save and Create New Draft');
+    $node = $this->getNodeByTitle('Another test node');
+    // Transition to needs review.
+    $this->drupalGet('node/' . $node->id() . '/edit');
+    $this->submitForm([], 'Save and Request Review');
+    // No mail should be sent.
+    $captured_emails = $this->container->get('state')->get('system.test_mail_collector') ?: [];
+    $this->assertEmpty($captured_emails);
   }
+
+  /**
+   * Enables moderation for a given node type.
+   *
+   * @param \Drupal\node\NodeTypeInterface $node_type
+   *   Node type to enable moderation for.
+   */
+  protected function setupModerationForNodeType(NodeTypeInterface $node_type) {
+    $node_type->setThirdPartySetting('workbench_moderation', 'enabled', TRUE);
+    $states = array_keys(ModerationState::loadMultiple());
+    $node_type->setThirdPartySetting('workbench_moderation', 'allowed_moderation_states', $states);
+    $node_type->setThirdPartySetting('workbench_moderation', 'default_moderation_state', 'draft');
+    $node_type->save();
+  }
+
 }
 
