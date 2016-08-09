@@ -67,6 +67,13 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
   protected $approver2;
 
   /**
+   * Approver 3 - blocked.
+   *
+   * @var \Drupal\user\UserInterface
+   */
+  protected $approver3;
+
+  /**
    * Editor.
    *
    * @var \Drupal\user\UserInterface
@@ -134,6 +141,10 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $this->approver2 = $this->drupalCreateUser();
     $this->approver2->addRole('approver');
     $this->approver2->save();
+    $this->approver3 = $this->drupalCreateUser();
+    $this->approver3->addRole('approver');
+    $this->approver3->block();
+    $this->approver3->save();
     // Create a editor role and user.
     $this->editorRole = $this->drupalCreateRole([
       'view any unpublished content',
@@ -278,9 +289,13 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $node = $this->getNodeByTitle('Test node');
     // Transition to needs review.
     $this->drupalGet('node/' . $node->id() . '/edit');
+    // Reset collected email.
+    $this->container->get('state')->set('system.test_mail_collector', []);
     $this->submitForm([], 'Save and Request Review');
     // Check mail goes to approvers.
     $captured_emails = $this->container->get('state')->get('system.test_mail_collector') ?: [];
+    // Should only be two emails.
+    $this->assertCount(2, $captured_emails);
     $last = end($captured_emails);
     $prev = prev($captured_emails);
     $this->assertTrue($prev && isset($prev['to']) && $prev['to'] == $this->approver1->mail->value);
