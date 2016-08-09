@@ -150,6 +150,7 @@ class WorkbenchTransitionEventSubscriber implements EventSubscriberInterface {
     foreach ($template->getRoles() as $role) {
       foreach ($this->entityTypeManager->getStorage('user')->loadByProperties([
         'roles' => $role,
+        'status' => 1,
       ]) as $account) {
         $recipients[] = $account->getEmail();
       }
