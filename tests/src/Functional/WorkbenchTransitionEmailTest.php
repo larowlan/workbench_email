@@ -304,6 +304,29 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $this->assertEquals('Content needs review', $prev['subject']);
     $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $prev['body']));
     $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $last['body']));
+
+    // Now try again going straight to needs review (no draft).
+    // Reset collected email.
+    $this->container->get('state')->set('system.test_mail_collector', []);
+    // Create a node and add to the notifier field.
+    $this->drupalGet('node/add/test');
+    $this->submitForm([
+      'title[0][value]' => 'Test node 2',
+    ], 'Save and Request Review');
+    $node2 = $this->getNodeByTitle('Test node 2');
+    // Check mail goes to approvers.
+    $captured_emails = $this->container->get('state')->get('system.test_mail_collector') ?: [];
+    // Should only be two emails.
+    $this->assertCount(2, $captured_emails);
+    $last = end($captured_emails);
+    $prev = prev($captured_emails);
+    $this->assertTrue($prev && isset($prev['to']) && $prev['to'] == $this->approver1->mail->value);
+    $this->assertTrue($last && isset($last['to']) && $last['to'] == $this->approver2->mail->value);
+    $this->assertEquals('Content needs review', $last['subject']);
+    $this->assertEquals('Content needs review', $prev['subject']);
+    $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node2->label(), $node2->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $prev['body']));
+    $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node2->label(), $node2->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $last['body']));
+
     // Login as approver and transition to approved.
     $this->drupalLogin($this->approver1);
     $this->drupalGet('node/' . $node->id() . '/edit');
