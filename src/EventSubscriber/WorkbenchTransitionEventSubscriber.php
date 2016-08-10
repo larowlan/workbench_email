@@ -4,13 +4,9 @@ namespace Drupal\workbench_email\EventSubscriber;
 
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Language\LanguageInterface;
-use Drupal\Core\Mail\MailManager;
 use Drupal\Core\Plugin\PluginBase;
 use Drupal\Core\Queue\QueueFactory;
-use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\Core\Utility\Token;
 use Drupal\user\EntityOwnerInterface;
 use Drupal\workbench_email\QueuedEmail;
 use Drupal\workbench_email\TemplateInterface;
