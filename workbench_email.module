@@ -6,6 +6,7 @@
  */
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Mail\MailFormatHelper;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\workbench_email\Entity\Template;
 use Drupal\workbench_email\TemplateInterface;
@@ -94,5 +95,27 @@ function workbench_email_mail($key, &$message, $params) {
       // Strip out any HTML.
       $message['body'][] = MailFormatHelper::htmlToText($params['body']);
     }
+  }
+}
+
+/**
+ * Implements hook_entity_update().
+ */
+function workbench_email_entity_update(EntityInterface $entity) {
+  /** @var \Drupal\workbench_moderation\ModerationInformationInterface $moderation_info */
+  $moderation_info = \Drupal::service('workbench_moderation.moderation_information');
+  if ($moderation_info->isModeratableEntity($entity)) {
+    \Drupal::service('workbench_email.processor')->processEntity($entity);
+  }
+}
+
+/**
+ * Implements hook_entity_insert().
+ */
+function workbench_email_entity_insert(EntityInterface $entity) {
+  /** @var \Drupal\workbench_moderation\ModerationInformationInterface $moderation_info */
+  $moderation_info = \Drupal::service('workbench_moderation.moderation_information');
+  if ($moderation_info->isModeratableEntity($entity)) {
+    \Drupal::service('workbench_email.processor')->processEntity($entity);
   }
 }

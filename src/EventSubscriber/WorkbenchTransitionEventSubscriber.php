@@ -6,10 +6,13 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Mail\MailManager;
+use Drupal\Core\Plugin\PluginBase;
+use Drupal\Core\Queue\QueueFactory;
 use Drupal\Core\Render\RendererInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Utility\Token;
 use Drupal\user\EntityOwnerInterface;
+use Drupal\workbench_email\QueuedEmail;
 use Drupal\workbench_email\TemplateInterface;
 use Drupal\workbench_moderation\Event\WorkbenchModerationEvents;
 use Drupal\workbench_moderation\Event\WorkbenchModerationTransitionEvent;
@@ -22,32 +25,11 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 class WorkbenchTransitionEventSubscriber implements EventSubscriberInterface {
 
   /**
-   * Drupal\Core\Mail\MailManager definition.
-   *
-   * @var \Drupal\Core\Mail\MailManager
-   */
-  protected $mailManager;
-
-  /**
-   * Token service.
-   *
-   * @var \Drupal\Core\Utility\Token
-   */
-  protected $token;
-
-  /**
    * Entity type manager.
    *
    * @var \Drupal\Core\Entity\EntityTypeManagerInterface
    */
   protected $entityTypeManager;
-
-  /**
-   * Renderer.
-   *
-   * @var \Drupal\Core\Render\RendererInterface
-   */
-  protected $renderer;
 
   /**
    * Current user.
@@ -57,14 +39,19 @@ class WorkbenchTransitionEventSubscriber implements EventSubscriberInterface {
   protected $currentUser;
 
   /**
+   * The queue service.
+   *
+   * @var \Drupal\Core\Queue\QueueFactory
+   */
+  protected $queueFactory;
+
+  /**
    * Constructor.
    */
-  public function __construct(MailManager $plugin_manager_mail, Token $token, EntityTypeManagerInterface $entity_type_manager, RendererInterface $renderer, AccountInterface $current_user) {
-    $this->mailManager = $plugin_manager_mail;
-    $this->token = $token;
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, AccountInterface $current_user, QueueFactory $queue_factory) {
     $this->entityTypeManager = $entity_type_manager;
     $this->currentUser = $current_user;
-    $this->renderer = $renderer;
+    $this->queueFactory = $queue_factory;
   }
 
   /**
@@ -104,22 +91,17 @@ class WorkbenchTransitionEventSubscriber implements EventSubscriberInterface {
       // There may be multiple at this point, but given we don't have access
       // to the transition that fired this event, we just pick the first one.
       $transition = reset($transitions);
+      /** @var \Drupal\Core\Queue\QueueInterface $queue */
+      $queue = $this->queueFactory->get('workbench_email_send' . PluginBase::DERIVATIVE_SEPARATOR . $entity->getEntityTypeId());
+
       /** @var \Drupal\workbench_email\TemplateInterface $template */
       foreach ($this->entityTypeManager->getStorage('workbench_email_template')->loadMultiple($transition->getThirdPartySetting('workbench_email', 'workbench_email_templates', [])) as $template) {
         if ($template->getBundles() && !in_array($entity->getEntityTypeId() . ':' . $entity->bundle(), $template->getBundles(), TRUE)) {
           // Continue, invalid bundle.
           continue;
         }
-        $body = $template->getBody();
-        $body['value'] = $this->token->replace($body['value'], [$entity->getEntityTypeId() => $entity]);
-        $subject = $template->getSubject();
-        $body = $this->checkMarkup($body['value'], $body['format']);
         foreach ($this->prepareRecipients($entity, $template) as $to) {
-          $this->mailManager->mail('workbench_email', 'template::' . $template->id(), $to, LanguageInterface::LANGCODE_DEFAULT, [
-            'body' => $body,
-            'template' => $template,
-            'subject' => $subject,
-          ]);
+          $queue->createItem(new QueuedEmail($template, $entity->uuid(), $to));
         }
       }
     }
@@ -139,6 +121,9 @@ class WorkbenchTransitionEventSubscriber implements EventSubscriberInterface {
    *   Entity being transitioned.
    * @param \Drupal\workbench_email\TemplateInterface $template
    *   Template being used.
+   *
+   * @return array
+   *   Array of email addresses to send to.
    */
   protected function prepareRecipients(ContentEntityInterface $entity, TemplateInterface $template) {
     $recipients = [];
@@ -169,27 +154,5 @@ class WorkbenchTransitionEventSubscriber implements EventSubscriberInterface {
     return array_unique($recipients);
   }
 
-  /**
-   * Converts message body to markup applying filter.
-   *
-   * @param string $text
-   *   Text to filter.
-   * @param string $format_id
-   *   Format ID.
-   * @param string $langcode
-   *   Langcode.
-   *
-   * @return \Drupal\Component\Render\MarkupInterface
-   *   Filtered markup.
-   */
-  protected function checkMarkup($text, $format_id, $langcode = LanguageInterface::LANGCODE_DEFAULT) {
-    $build = array(
-      '#type' => 'processed_text',
-      '#text' => $text,
-      '#format' => $format_id,
-      '#filter_types_to_skip' => [],
-      '#langcode' => $langcode,
-    );
-    return $this->renderer->renderPlain($build);
-  }
+
 }
