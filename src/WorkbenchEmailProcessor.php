@@ -1,11 +1,6 @@
 <?php
-/**
- * @file
- * Contains Drupal\workbench_email\WorkbenchEmailProcessor.
- */
 
 namespace Drupal\workbench_email;
-
 
 use Drupal\Component\Plugin\PluginBase;
 use Drupal\Core\Entity\EntityInterface;
@@ -13,10 +8,11 @@ use Drupal\Core\Logger\LoggerChannelFactory;
 use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\Core\Queue\QueueFactory;
 use Drupal\Core\Queue\QueueWorkerManagerInterface;
-use Drupal\Core\Queue\RequeueException;
-use Drupal\Core\Queue\SuspendQueueException;
 use Drupal\Core\Utility\Error;
 
+/**
+ * Defines a class for processing a queue for a given entity ID.
+ */
 class WorkbenchEmailProcessor {
 
   /**
@@ -50,8 +46,10 @@ class WorkbenchEmailProcessor {
    *
    * @param \Drupal\Core\Queue\QueueFactory $queue_factory
    *   The queue service.
-   * @param \Drupal\Core\Queue\QueueWorkerManagerInterface
+   * @param \Drupal\Core\Queue\QueueWorkerManagerInterface $queue_manager
    *   The queue plugin manager.
+   * @param \Drupal\Core\Logger\LoggerChannelFactory $logger_factory
+   *   Logger factory service.
    */
   public function __construct(QueueFactory $queue_factory, QueueWorkerManagerInterface $queue_manager, LoggerChannelFactory $logger_factory) {
     $this->queueFactory = $queue_factory;
@@ -75,19 +73,31 @@ class WorkbenchEmailProcessor {
     $queue = $this->queueFactory->get($queue_name);
     $to_release = [];
     $end = time() + static::PROCESSING_TIME;
-    while (time() < $end && ($item = $queue->claimItem())) {
-      if ($item->data instanceof QueuedEmail && $item->data->getUuid() === $entity->uuid()) {
-        try {
-          $queue_worker->processItem($item->data);
-          $queue->deleteItem($item);
+    while (time() < $end && $item = $queue->claimItem()) {
+      if ($item->data instanceof QueuedEmail) {
+        // We populate and flush the queue in one request at present, so we
+        // should only ever have matching items. However in theory we could
+        // support sending in the background, in which case we are defensive
+        // here in case there are items in the queue that don't match the entity
+        // we're processing. Similarly, there may be an instance where two or
+        // more entities are saved in the one request, and in that case there
+        // would be more than one entity in the queue.
+        if ($item->data->getUuid() === $entity->uuid()) {
+          try {
+            $queue_worker->processItem($item->data);
+            $queue->deleteItem($item);
+          }
+          catch (\Exception $e) {
+            // In case of any exception, just log it.
+            $this->logger->log(RfcLogLevel::ERROR, '%type: @message in %function (line %line of %file).', Error::decodeException($e));
+          }
         }
-        catch (\Exception $e) {
-          // In case of any exception, just log it.
-          $this->logger->log(RfcLogLevel::ERROR, '%type: @message in %function (line %line of %file).', Error::decodeException($e));
+        else {
+          $to_release[] = $item;
         }
       }
       else {
-        $to_release[] = $item;
+        throw new \LogicException('Cannot perform queue processing on objects other than a QueuedEmail.');
       }
     }
     // Put these back into the queue.

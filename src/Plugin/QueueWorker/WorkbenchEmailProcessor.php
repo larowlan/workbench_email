@@ -32,7 +32,7 @@ class WorkbenchEmailProcessor extends QueueWorkerBase implements ContainerFactor
   protected $targetEntityType;
 
   /**
-   * Drupal\Core\Mail\MailManager definition.
+   * Mail manager service.
    *
    * @var \Drupal\Core\Mail\MailManager
    */
@@ -70,11 +70,17 @@ class WorkbenchEmailProcessor extends QueueWorkerBase implements ContainerFactor
    *   Definition.
    * @param \Drupal\Core\Mail\MailManagerInterface $mail_manager
    *   Mail manager service.
+   * @param \Drupal\Core\Entity\EntityRepositoryInterface $entity_repository
+   *   Entity repository service.
+   * @param \Drupal\Core\Utility\Token $token
+   *   Token service.
+   * @param \Drupal\Core\Render\RendererInterface $renderer
+   *   Renderer service.
    */
   public function __construct(array $configuration, $plugin_id, $plugin_definition, MailManagerInterface $mail_manager, EntityRepositoryInterface $entity_repository, Token $token, RendererInterface $renderer) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->mailManager = $mail_manager;
-    $this->targetEntityType = $configuration['entity_type'];
+    $this->targetEntityType = $plugin_definition['entity_type'];
     $this->entityRepository = $entity_repository;
     $this->token = $token;
     $this->renderer = $renderer;
@@ -103,19 +109,21 @@ class WorkbenchEmailProcessor extends QueueWorkerBase implements ContainerFactor
       $template = $data->getTemplate();
       $uuid = $data->getUuid();
       if ($entity = $this->entityRepository->loadEntityByUuid($this->targetEntityType, $uuid)) {
+        $body = $template->getBody();
+        $subject = $template->getSubject();
+        $body['value'] = $this->token->replace($body['value'], [$entity->getEntityTypeId() => $entity]);
+        $body = $this->checkMarkup($body['value'], $body['format']);
 
+        // Send the email.
+        $this->mailManager->mail('workbench_email', 'template::' . $template->id(), $data->getTo(), LanguageInterface::LANGCODE_DEFAULT, [
+          'body' => $body,
+          'template' => $template,
+          'subject' => $subject,
+        ]);
       }
-      $body = $template->getBody();
-      $subject = $template->getSubject();
-      $body['value'] = $this->token->replace($body['value'], [$entity->getEntityTypeId() => $entity]);
-      $body = $this->checkMarkup($body['value'], $body['format']);
-
-      // Send the email.
-      $this->mailManager->mail('workbench_email', 'template::' . $template->id(), $data->getTo(), LanguageInterface::LANGCODE_DEFAULT, [
-        'body' => $body,
-        'template' => $template,
-        'subject' => $subject,
-      ]);
+    }
+    else {
+      throw new \InvalidArgumentException('Cannot perform queue processing on objects other than a QueuedEmail.');
     }
 
   }
@@ -134,13 +142,13 @@ class WorkbenchEmailProcessor extends QueueWorkerBase implements ContainerFactor
    *   Filtered markup.
    */
   protected function checkMarkup($text, $format_id, $langcode = LanguageInterface::LANGCODE_DEFAULT) {
-    $build = array(
+    $build = [
       '#type' => 'processed_text',
       '#text' => $text,
       '#format' => $format_id,
       '#filter_types_to_skip' => [],
       '#langcode' => $langcode,
-    );
+    ];
     return $this->renderer->renderPlain($build);
   }
 
