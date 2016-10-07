@@ -110,7 +110,7 @@ class WorkbenchEmailProcessor extends QueueWorkerBase implements ContainerFactor
       $uuid = $data->getUuid();
       if ($entity = $this->entityRepository->loadEntityByUuid($this->targetEntityType, $uuid)) {
         $body = $template->getBody();
-        $subject = $template->getSubject();
+        $subject = $this->token->replace($template->getSubject(), [$entity->getEntityTypeId() => $entity]);
         $body['value'] = $this->token->replace($body['value'], [$entity->getEntityTypeId() => $entity]);
         $body = $this->checkMarkup($body['value'], $body['format']);
 

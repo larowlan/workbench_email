@@ -223,7 +223,7 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
       'id' => 'approved',
       'label' => 'Content approved',
       'body[value]' => 'Content with title [node:title] was approved. You can view it at [node:url].',
-      'subject' => 'Content approved',
+      'subject' => 'Content approved: [node:title]',
       'fields[node:field_email]' => TRUE,
       'author' => TRUE,
     ], t('Save'));
@@ -259,7 +259,7 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $this->submitForm([
       'label' => 'Content needs review',
       'body[value]' => 'Content with title [node:title] needs review. You can view it at [node:url].',
-      'subject' => 'Content needs review',
+      'subject' => 'Content needs review: [node:title]',
     ], t('Save'));
     $assert->pageTextContains('Saved the Content needs review Email Template');
     // Edit the transition from needs review to published and use the
@@ -300,8 +300,8 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $prev = prev($captured_emails);
     $this->assertTrue($prev && isset($prev['to']) && $prev['to'] == $this->approver1->mail->value);
     $this->assertTrue($last && isset($last['to']) && $last['to'] == $this->approver2->mail->value);
-    $this->assertEquals('Content needs review', $last['subject']);
-    $this->assertEquals('Content needs review', $prev['subject']);
+    $this->assertEquals(sprintf('Content needs review: %s', $node->getTitle()), $last['subject']);
+    $this->assertEquals(sprintf('Content needs review: %s', $node->getTitle()), $prev['subject']);
     $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $prev['body']));
     $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $last['body']));
 
@@ -322,8 +322,8 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $prev = prev($captured_emails);
     $this->assertTrue($prev && isset($prev['to']) && $prev['to'] == $this->approver1->mail->value);
     $this->assertTrue($last && isset($last['to']) && $last['to'] == $this->approver2->mail->value);
-    $this->assertEquals('Content needs review', $last['subject']);
-    $this->assertEquals('Content needs review', $prev['subject']);
+    $this->assertEquals(sprintf('Content needs review: %s', $node2->getTitle()), $last['subject']);
+    $this->assertEquals(sprintf('Content needs review: %s', $node2->getTitle()), $prev['subject']);
     $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node2->label(), $node2->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $prev['body']));
     $this->assertContains(sprintf('Content with title %s needs review. You can view it at %s', $node2->label(), $node2->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $last['body']));
 
@@ -337,8 +337,8 @@ class WorkbenchTransitionEmailTest extends BrowserTestBase {
     $prev = prev($captured_emails);
     $this->assertTrue($prev && isset($prev['to']) && $prev['to'] == $this->editor->getEmail());
     $this->assertTrue($last && isset($last['to']) && $last['to'] == 'foo@example.com');
-    $this->assertEquals('Content approved', $last['subject']);
-    $this->assertEquals('Content approved', $prev['subject']);
+    $this->assertEquals(sprintf('Content approved: %s', $node->getTitle()), $last['subject']);
+    $this->assertEquals(sprintf('Content approved: %s', $node->getTitle()), $prev['subject']);
     $this->assertContains(sprintf('Content with title %s was approved. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $prev['body']));
     $this->assertContains(sprintf('Content with title %s was approved. You can view it at %s', $node->label(), $node->toUrl('canonical', ['absolute' => TRUE])->toString()), preg_replace('/\s+/', ' ', $last['body']));
     // Try with the other node type, that isn't enabled.
